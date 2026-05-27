@@ -141,7 +141,7 @@ US_UNIVERSE = [            # 美股
 ]
 
 BENCHMARKS = {"TWSE": "^TWII", "TPEX": "^TWII", "US": "^GSPC"}
-EMA21_THRESHOLD = 0.015   # 1.5% 以內視為觸碰21日均線
+EMA21_THRESHOLD = 0.015
 TOP_N = 3
 
 
@@ -184,29 +184,24 @@ def fetch_benchmark(market: str) -> Optional[pd.DataFrame]:
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     c = df["Close"].astype(float)
-
-    df["EMA21"]  = c.ewm(span=21,  adjust=False).mean()
-    df["MA50"]   = c.rolling(50).mean()
-    df["MA200"]  = c.rolling(200).mean()
-
-    ema12 = c.ewm(span=12, adjust=False).mean()
-    ema26 = c.ewm(span=26, adjust=False).mean()
+    df["EMA21"]       = c.ewm(span=21, adjust=False).mean()
+    df["MA50"]        = c.rolling(50).mean()
+    df["MA200"]       = c.rolling(200).mean()
+    ema12             = c.ewm(span=12, adjust=False).mean()
+    ema26             = c.ewm(span=26, adjust=False).mean()
     df["MACD"]        = ema12 - ema26
     df["MACD_Signal"] = df["MACD"].ewm(span=9, adjust=False).mean()
     df["MACD_Hist"]   = df["MACD"] - df["MACD_Signal"]
-
-    delta = c.diff()
-    gain  = delta.clip(lower=0).ewm(span=14, adjust=False).mean()
-    loss  = (-delta.clip(upper=0)).ewm(span=14, adjust=False).mean()
-    df["RSI"] = 100 - (100 / (1 + gain / loss.replace(0, 1e-9)))
-
-    bb_mid = c.rolling(20).mean()
-    bb_std = c.rolling(20).std()
-    df["BB_Upper"] = bb_mid + 2 * bb_std
-    df["BB_Mid"]   = bb_mid
-    df["BB_Lower"] = bb_mid - 2 * bb_std
-
-    df["Vol_MA20"] = df["Volume"].astype(float).rolling(20).mean()
+    delta             = c.diff()
+    gain              = delta.clip(lower=0).ewm(span=14, adjust=False).mean()
+    loss              = (-delta.clip(upper=0)).ewm(span=14, adjust=False).mean()
+    df["RSI"]         = 100 - (100 / (1 + gain / loss.replace(0, 1e-9)))
+    bb_mid            = c.rolling(20).mean()
+    bb_std            = c.rolling(20).std()
+    df["BB_Upper"]    = bb_mid + 2 * bb_std
+    df["BB_Mid"]      = bb_mid
+    df["BB_Lower"]    = bb_mid - 2 * bb_std
+    df["Vol_MA20"]    = df["Volume"].astype(float).rolling(20).mean()
     return df
 
 
@@ -248,7 +243,8 @@ def score_canslim(symbol, hist, info, bench) -> dict:
         elif eg >= 0.1: c = 10
         elif eg > 0: c = 5
     else:
-        eps, fwd = _safe(info.get("trailingEps")), _safe(info.get("forwardEps"))
+        eps = _safe(info.get("trailingEps"))
+        fwd = _safe(info.get("forwardEps"))
         if eps != 0 and fwd != 0:
             g = (fwd - eps) / abs(eps)
             if g >= 0.5: c = 22
@@ -296,7 +292,7 @@ def score_canslim(symbol, hist, info, bench) -> dict:
     # S — 量能籌碼 (15分)
     s = 0
     if hist is not None and len(hist) >= 21:
-        rec  = hist.tail(21).copy()
+        rec = hist.tail(21).copy()
         rec["chg"] = rec["Close"].pct_change()
         up   = float(rec.loc[rec["chg"] > 0, "Volume"].sum())
         down = float(rec.loc[rec["chg"] < 0, "Volume"].sum())
@@ -344,8 +340,8 @@ def score_canslim(symbol, hist, info, bench) -> dict:
         cur   = _safe(bc.iloc[-1])
         ma50  = _safe(bc.rolling(50).mean().iloc[-1])
         ma200 = _safe(bc.rolling(min(200, len(bc))).mean().iloc[-1], cur)
-        if cur > ma50:  m += 2
-        if cur > ma200: m += 2
+        if cur > ma50:   m += 2
+        if cur > ma200:  m += 2
         if ma50 > ma200: m += 1
     else:
         m = 2
@@ -371,8 +367,8 @@ def score_canslim(symbol, hist, info, bench) -> dict:
 # 掃描市場（平行執行）
 # ================================================================
 def screen_market(universe, market, top_n=TOP_N):
-    bench  = fetch_benchmark(market)
-    scored = []
+    bench    = fetch_benchmark(market)
+    scored   = []
     hist_map = {}
 
     def _process(sym):
@@ -475,8 +471,9 @@ def build_candle_chart(stock: dict) -> go.Figure:
     p, c1d = stock.get("price", 0), stock.get("chg1d", 0)
     sgn, cc = ("▲", _GREEN) if c1d >= 0 else ("▼", _RED)
     fig.update_layout(
-        title=dict(text=f"<b>{sym}</b>  {nm}  <span style='color:{cc}'>{p:,.2f}  {sgn}{abs(c1d*100):.2f}%</span>",
-                   font=dict(size=12, color="#ddd"), x=0),
+        title=dict(
+            text=f"<b>{sym}</b>  {nm}  <span style='color:{cc}'>{p:,.2f}  {sgn}{abs(c1d*100):.2f}%</span>",
+            font=dict(size=12, color="#ddd"), x=0),
         height=520, paper_bgcolor=_BG, plot_bgcolor=_PLOT,
         font=dict(color="#888", size=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1,
@@ -493,19 +490,19 @@ def build_candle_chart(stock: dict) -> go.Figure:
 
 
 def build_radar(stock: dict) -> go.Figure:
-    cats = ["C 當季EPS","A 年獲利","N 創新高","S 量能","L 相對強度","I 法人","M 市場"]
+    cats = ["C 當季EPS", "A 年獲利", "N 創新高", "S 量能", "L 相對強度", "I 法人", "M 市場"]
     maxs = [25, 20, 15, 15, 15, 5, 5]
     vals = [stock.get(k, 0) for k in ["C","A","N","S","L","I","M"]]
     pcts = [v / m * 100 for v, m in zip(vals, maxs)]
-
-    fig = go.Figure(go.Scatterpolar(
+    fig  = go.Figure(go.Scatterpolar(
         r=pcts + [pcts[0]], theta=cats + [cats[0]], fill="toself",
         fillcolor="rgba(0,255,136,0.12)", line=dict(color="#00ff88", width=2),
         hovertemplate="%{theta}: %{r:.0f}%<extra></extra>",
     ))
     fig.update_layout(
         polar=dict(bgcolor="#131722",
-            radialaxis=dict(visible=True, range=[0,100], gridcolor="rgba(255,255,255,0.1)",
+            radialaxis=dict(visible=True, range=[0,100],
+                gridcolor="rgba(255,255,255,0.1)",
                 tickfont=dict(color="#555", size=8), tickvals=[25,50,75,100]),
             angularaxis=dict(gridcolor="rgba(255,255,255,0.1)",
                 tickfont=dict(color="#aaa", size=8))),
@@ -521,9 +518,9 @@ def _scolor(score, mx=100.0):
 
 
 # ================================================================
-# 市場分頁渲染
+# 市場分頁渲染（詳細圖表）
 # ================================================================
-def render_market_tab(top, all_scores):
+def render_market_tab(top: list, all_scores: list) -> None:
     if not top:
         st.warning("⚠️ 無法取得足夠資料，請稍後重試。")
         return
@@ -534,7 +531,6 @@ def render_market_tab(top, all_scores):
             sym, nm = stk["symbol"], stk.get("name", stk["symbol"])
             total   = stk.get("total", 0)
             sc_c    = _scolor(float(total))
-
             st.markdown(f"""
             <div class="rank-card">
               <span style="font-size:1.05rem;font-weight:800;color:#eee">#{i+1} {sym}</span><br>
@@ -561,7 +557,8 @@ def render_market_tab(top, all_scores):
                     v  = stk.get(k, 0)
                     cc = _scolor(float(v), float(mx))
                     st.markdown(
-                        f'<div style="display:flex;justify-content:space-between;font-size:.78rem;margin:3px 0;">'
+                        f'<div style="display:flex;justify-content:space-between;'
+                        f'font-size:.78rem;margin:3px 0;">'
                         f'<span style="color:#888">{lbl}</span>'
                         f'<span style="color:{cc};font-weight:700">{v}/{mx}</span></div>',
                         unsafe_allow_html=True)
@@ -582,7 +579,7 @@ def render_market_tab(top, all_scores):
 # ================================================================
 # 主程式
 # ================================================================
-def main():
+def main() -> None:
     if HAS_AUTOREFRESH:
         st_autorefresh(interval=15 * 60 * 1000, key="canslim_auto")
 
@@ -601,6 +598,7 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
+    # ── 掃描三市場 ──
     with st.spinner("🔍 CAN SLIM 掃描中，請稍候…"):
         prog = st.progress(0, text="掃描台股上市 (25支)…")
         twse_top, twse_all = screen_market(TWSE_UNIVERSE, "TWSE")
@@ -612,11 +610,12 @@ def main():
         time.sleep(0.25)
         prog.empty()
 
+    # 合併9名（供警示用）
     all9 = ([(s, "🇹🇼 上市") for s in twse_top] +
             [(s, "🏪 上櫃")  for s in tpex_top] +
             [(s, "🇺🇸 美股") for s in us_top])
 
-    # 21日均線警示
+    # ── 21日均線接觸警示 ──
     alerts = [(stk, mkt, ema21_alert(stk.get("hist")))
               for stk, mkt in all9 if ema21_alert(stk.get("hist")) is not None]
     if alerts:
@@ -638,34 +637,102 @@ def main():
                 unsafe_allow_html=True)
         st.markdown("---")
 
-    # 總覽表
-    st.markdown("### 📊 CAN SLIM 前9名個股總覽")
-    tbl_rows = []
-    for rank, (stk, mkt) in enumerate(all9, 1):
-        tbl_rows.append({"排名":rank, "代號":stk["symbol"],
-            "名稱":stk.get("name",stk["symbol"])[:14], "市場":mkt,
-            "現價":f"{stk.get('price',0):,.2f}",
-            "日漲跌":f"{stk.get('chg1d',0)*100:+.2f}%",
-            "月漲跌":f"{stk.get('chg1m',0)*100:+.2f}%",
-            "C":stk.get("C",0),"A":stk.get("A",0),"N":stk.get("N",0),
-            "S":stk.get("S",0),"L":stk.get("L",0),"I":stk.get("I",0),
-            "M":stk.get("M",0),"總分":stk.get("total",0)})
+    # ================================================================
+    # 三市場各前3名總覽（共9名）
+    # ================================================================
+    twse_cnt = len(twse_top)
+    tpex_cnt = len(tpex_top)
+    us_cnt   = len(us_top)
 
-    st.dataframe(pd.DataFrame(tbl_rows), use_container_width=True, hide_index=True,
-        column_config={
-            "C":  st.column_config.ProgressColumn("C(EPS)",  min_value=0, max_value=25,  format="%d"),
-            "A":  st.column_config.ProgressColumn("A(年增)", min_value=0, max_value=20,  format="%d"),
-            "N":  st.column_config.ProgressColumn("N(新高)", min_value=0, max_value=15,  format="%d"),
-            "S":  st.column_config.ProgressColumn("S(量能)", min_value=0, max_value=15,  format="%d"),
-            "L":  st.column_config.ProgressColumn("L(強度)", min_value=0, max_value=15,  format="%d"),
-            "I":  st.column_config.ProgressColumn("I(法人)", min_value=0, max_value=5,   format="%d"),
-            "M":  st.column_config.ProgressColumn("M(市場)", min_value=0, max_value=5,   format="%d"),
-            "總分": st.column_config.ProgressColumn("總分/100", min_value=0, max_value=100, format="%d"),
-        })
+    st.markdown("### 📊 CAN SLIM 入選個股 — 各市場前3名，合計共9名")
+
+    # 市場統計卡片
+    h1, h2, h3 = st.columns(3)
+    with h1:
+        st.markdown(
+            f'<div style="background:#0d2a1a;border:1px solid #00ff88;border-radius:8px;'
+            f'padding:10px;text-align:center;">'
+            f'<span style="font-size:1.3rem">🇹🇼</span><br>'
+            f'<b style="color:#00ff88;font-size:1rem">台股上市</b><br>'
+            f'<span style="color:#aaa;font-size:.85rem">前 {twse_cnt} 名｜掃描 {len(twse_all)} 支</span>'
+            f'</div>', unsafe_allow_html=True)
+    with h2:
+        st.markdown(
+            f'<div style="background:#0d1a2a;border:1px solid #00bfff;border-radius:8px;'
+            f'padding:10px;text-align:center;">'
+            f'<span style="font-size:1.3rem">🏪</span><br>'
+            f'<b style="color:#00bfff;font-size:1rem">台股上櫃</b><br>'
+            f'<span style="color:#aaa;font-size:.85rem">前 {tpex_cnt} 名｜掃描 {len(tpex_all)} 支</span>'
+            f'</div>', unsafe_allow_html=True)
+    with h3:
+        st.markdown(
+            f'<div style="background:#1a0d2a;border:1px solid #bf00ff;border-radius:8px;'
+            f'padding:10px;text-align:center;">'
+            f'<span style="font-size:1.3rem">🇺🇸</span><br>'
+            f'<b style="color:#bf00ff;font-size:1rem">美股</b><br>'
+            f'<span style="color:#aaa;font-size:.85rem">前 {us_cnt} 名｜掃描 {len(us_all)} 支</span>'
+            f'</div>', unsafe_allow_html=True)
+
+    st.markdown("<div style='margin:12px 0'></div>", unsafe_allow_html=True)
+
+    def _market_table(top_stocks: list) -> None:
+        if not top_stocks:
+            st.warning("資料不足，請稍後重試。")
+            return
+        rows = []
+        for rank, stk in enumerate(top_stocks, 1):
+            rows.append({
+                "名次": rank,
+                "代號": stk["symbol"],
+                "名稱": stk.get("name", stk["symbol"])[:12],
+                "現價": f"{stk.get('price', 0):,.2f}",
+                "日%":  f"{stk.get('chg1d', 0)*100:+.2f}%",
+                "月%":  f"{stk.get('chg1m', 0)*100:+.2f}%",
+                "C":    stk.get("C", 0),
+                "A":    stk.get("A", 0),
+                "N":    stk.get("N", 0),
+                "S":    stk.get("S", 0),
+                "L":    stk.get("L", 0),
+                "總分": stk.get("total", 0),
+            })
+        st.dataframe(
+            pd.DataFrame(rows),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "C":   st.column_config.ProgressColumn("C", min_value=0, max_value=25,  format="%d"),
+                "A":   st.column_config.ProgressColumn("A", min_value=0, max_value=20,  format="%d"),
+                "N":   st.column_config.ProgressColumn("N", min_value=0, max_value=15,  format="%d"),
+                "S":   st.column_config.ProgressColumn("S", min_value=0, max_value=15,  format="%d"),
+                "L":   st.column_config.ProgressColumn("L", min_value=0, max_value=15,  format="%d"),
+                "總分": st.column_config.ProgressColumn("總分/100", min_value=0, max_value=100, format="%d"),
+            },
+        )
+
+    # 三欄並排
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown('<p style="color:#00ff88;font-weight:700;margin:0 0 6px 0">🇹🇼 台股上市 前3名</p>',
+                    unsafe_allow_html=True)
+        _market_table(twse_top)
+    with col2:
+        st.markdown('<p style="color:#00bfff;font-weight:700;margin:0 0 6px 0">🏪 台股上櫃 前3名</p>',
+                    unsafe_allow_html=True)
+        _market_table(tpex_top)
+    with col3:
+        st.markdown('<p style="color:#bf00ff;font-weight:700;margin:0 0 6px 0">🇺🇸 美股 前3名</p>',
+                    unsafe_allow_html=True)
+        _market_table(us_top)
+
     st.markdown("---")
 
-    # 分頁圖表
-    tab1, tab2, tab3 = st.tabs(["🇹🇼 台股上市 Top 3","🏪 台股上櫃 Top 3","🇺🇸 美股 Top 3"])
+    # ── 詳細技術分析分頁 ──
+    st.markdown("### 📈 詳細技術分析（K線・EMA21・MACD・雷達圖）")
+    tab1, tab2, tab3 = st.tabs([
+        f"🇹🇼 台股上市 前{twse_cnt}名",
+        f"🏪 台股上櫃 前{tpex_cnt}名",
+        f"🇺🇸 美股 前{us_cnt}名",
+    ])
     with tab1: render_market_tab(twse_top, twse_all)
     with tab2: render_market_tab(tpex_top, tpex_all)
     with tab3: render_market_tab(us_top, us_all)
@@ -678,10 +745,12 @@ def main():
 | **C** Current Earnings | 當季EPS年增率（目標 ≥ 25%） | 25 |
 | **A** Annual Earnings  | 年度獲利成長（ROE・利潤率・營收增速） | 20 |
 | **N** New High         | 接近52週高點或突破創新高 | 15 |
-| **S** Supply & Demand  | 21日上漲量能 vs 下跌量能 | 15 |
+| **S** Supply & Demand  | 21日上漲量能 vs 下跌量能（籌碼積累） | 15 |
 | **L** Leader           | 相對大盤強弱（近63個交易日） | 15 |
 | **I** Institutional    | 法人持股比例 | 5 |
 | **M** Market Direction | 大盤位於MA50/MA200上方 | 5 |
+
+**21日均線警示**：9支個股中任一收盤價距EMA21在 **±1.5%** 以內時，自動顯示警示框。
 
 > ⚠️ 本看板僅供學習參考，不構成投資建議。資料來源：Yahoo Finance。
         """)
